@@ -21,3 +21,35 @@
 // SOFTWARE.
 
 package worker
+
+import (
+	"reflect"
+)
+
+type f interface{}
+
+type funcor interface {
+	f
+}
+
+func Bind[T funcor](f interface{}, fixedArgs ...interface{}) T {
+	var functor T
+	definitionValue := reflect.ValueOf(definition)
+
+	funcValue := reflect.ValueOf(f)
+	if funcValue.Kind() != reflect.Func {
+		panic("first argument must be a function")
+	}
+
+	fn := reflect.MakeFunc(definitionValue.Type(), func(args []reflect.Value) []reflect.Value {
+		allArgs := make([]reflect.Value, len(fixedArgs)+len(args))
+		for i, arg := range fixedArgs {
+			allArgs[i] = reflect.ValueOf(arg)
+		}
+		for i, arg := range args {
+			allArgs[len(fixedArgs)+i] = arg
+		}
+		return funcValue.Call(allArgs)
+	})
+	return fn.Interface().(T)
+}

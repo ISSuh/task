@@ -20,20 +20,29 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package main
+package worker
 
 import (
 	"fmt"
 	"reflect"
+	"testing"
 )
 
 // 바인딩할 함수를 반환
-func bind(f interface{}, fixedArgs ...interface{}) interface{} {
+func bind[T any](f interface{}, fixedArgs ...interface{}) T {
+	var funcDef T
+	funcDefValue := reflect.ValueOf(funcDef)
+
 	fnValue := reflect.ValueOf(f)
+
+	fmt.Printf("[1] fnValue.Type() : %s\n", fnValue.Type())
+	fmt.Printf("[1] funcDefValue.Type() : %s\n", funcDefValue.Type())
+
 	if fnValue.Kind() != reflect.Func {
 		panic("first argument must be a function")
 	}
-	return reflect.MakeFunc(fnValue.Type(), func(args []reflect.Value) []reflect.Value {
+
+	fn := reflect.MakeFunc(funcDefValue.Type(), func(args []reflect.Value) []reflect.Value {
 		allArgs := make([]reflect.Value, len(fixedArgs)+len(args))
 		for i, arg := range fixedArgs {
 			allArgs[i] = reflect.ValueOf(arg)
@@ -43,26 +52,18 @@ func bind(f interface{}, fixedArgs ...interface{}) interface{} {
 		}
 		return fnValue.Call(allArgs)
 	}).Interface()
+
+	tempF := reflect.ValueOf(fn)
+	fmt.Printf("[2] tempF.Type() : %s\n", tempF.Type())
+
+	return fn
 }
 
-func add(a, b int) int {
-	return a + b
+func add(a, b, c int) int {
+	return a + b + c
 }
 
-func multiply(a, b int) int {
-	return a * b
-}
-
-func main() {
-	// add 함수의 첫 번째 인수를 5로 고정
-	addFive := bind(add, 5).(func(int) int)
-	fmt.Println(addFive(3)) // 출력: 8
-
-	// multiply 함수의 첫 번째 인수를 2로 고정
-	multiplyByTwo := bind(multiply, 2).(func(int) int)
-	fmt.Println(multiplyByTwo(4)) // 출력: 8
-
-	// multiply 함수의 첫 번째 인수를 3으로 고정
-	multiplyByThree := bind(multiply, 3).(func(int) int)
-	fmt.Println(multiplyByThree(4)) // 출력: 12
+func TestTemp(t *testing.T) {
+	addFive := bind[func(int) int](add, 1, 2)
+	fmt.Println(addFive(3))
 }
