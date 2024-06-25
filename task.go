@@ -21,3 +21,23 @@
 // SOFTWARE.
 
 package worker
+
+import (
+	"fmt"
+	"reflect"
+)
+
+type Task[T any] struct {
+	Run       T
+	function  reflect.Value
+	fixedArgs []reflect.Value
+}
+
+func (t *Task[T]) wrapper(args []reflect.Value) []reflect.Value {
+	allArgs := t.fixedArgs
+	allArgs = append(allArgs, args...)
+	for _, arg := range allArgs {
+		fmt.Printf("arg : %+v\n", arg)
+	}
+	return t.function.Call(allArgs)
+}
