@@ -62,12 +62,12 @@ func TestBind(t *testing.T) {
 			funcs.reset()
 
 			type FuntionDefinition func()
-			task, err := Bind[FuntionDefinition](funcs.func1)
+			callback, err := Bind[FuntionDefinition](funcs.func1)
 			require.NoError(t, err)
 
-			task.Run()
+			callback.Run()
 
-			require.NotNil(t, task)
+			require.NotNil(t, callback)
 			require.True(t, funcs.Called[1])
 		})
 
@@ -75,27 +75,36 @@ func TestBind(t *testing.T) {
 			funcs.reset()
 
 			type FuntionDefinition func(int)
-			task, err := Bind[FuntionDefinition](funcs.func1)
+			callback, err := Bind[FuntionDefinition](funcs.func1)
 			require.Error(t, err)
-			require.Nil(t, task)
+			require.Nil(t, callback)
 		})
 
 		t.Run("invalid return binding", func(t *testing.T) {
 			funcs.reset()
 
 			type FuntionDefinition func() int
-			task, err := Bind[FuntionDefinition](funcs.func1)
+			callback, err := Bind[FuntionDefinition](funcs.func1)
 			require.Error(t, err)
-			require.Nil(t, task)
+			require.Nil(t, callback)
 		})
 
 		t.Run("invalid number of fixed parameter", func(t *testing.T) {
 			funcs.reset()
 
 			type FuntionDefinition func()
-			task, err := Bind[FuntionDefinition](funcs.func1, 1)
+			callback, err := Bind[FuntionDefinition](funcs.func1, 1)
 			require.Error(t, err)
-			require.Nil(t, task)
+			require.Nil(t, callback)
+		})
+
+		t.Run("invalid generic type", func(t *testing.T) {
+			funcs.reset()
+
+			type FuntionDefinition int
+			callback, err := Bind[FuntionDefinition](funcs.func1, 1)
+			require.Error(t, err)
+			require.Nil(t, callback)
 		})
 	})
 
@@ -104,12 +113,12 @@ func TestBind(t *testing.T) {
 			funcs.reset()
 
 			type FuntionDefinition func()
-			task, err := Bind[FuntionDefinition](funcs.func2, 5)
+			callback, err := Bind[FuntionDefinition](funcs.func2, 5)
 			require.NoError(t, err)
 
-			task.Run()
+			callback.Run()
 
-			require.NotNil(t, task)
+			require.NotNil(t, callback)
 			require.True(t, funcs.Called[2])
 		})
 
@@ -117,12 +126,12 @@ func TestBind(t *testing.T) {
 			funcs.reset()
 
 			type FuntionDefinition func(int)
-			task, err := Bind[FuntionDefinition](funcs.func2)
+			callback, err := Bind[FuntionDefinition](funcs.func2)
 			require.NoError(t, err)
 
-			task.Run(1)
+			callback.Run(1)
 
-			require.NotNil(t, task)
+			require.NotNil(t, callback)
 			require.True(t, funcs.Called[2])
 		})
 	})
@@ -132,12 +141,12 @@ func TestBind(t *testing.T) {
 			funcs.reset()
 
 			type FuntionDefinition func() int
-			task, err := Bind[FuntionDefinition](funcs.func3, 5)
+			callback, err := Bind[FuntionDefinition](funcs.func3, 5)
 			require.NoError(t, err)
 
-			task.Run()
+			callback.Run()
 
-			require.NotNil(t, task)
+			require.NotNil(t, callback)
 			require.True(t, funcs.Called[3])
 		})
 
@@ -145,12 +154,12 @@ func TestBind(t *testing.T) {
 			funcs.reset()
 
 			type FuntionDefinition func(int) int
-			task, err := Bind[FuntionDefinition](funcs.func3)
+			callback, err := Bind[FuntionDefinition](funcs.func3)
 			require.NoError(t, err)
 
-			task.Run(1)
+			callback.Run(1)
 
-			require.NotNil(t, task)
+			require.NotNil(t, callback)
 			require.True(t, funcs.Called[3])
 		})
 
@@ -158,9 +167,9 @@ func TestBind(t *testing.T) {
 			funcs.reset()
 
 			type FuntionDefinition func(int)
-			task, err := Bind[FuntionDefinition](funcs.func3)
+			callback, err := Bind[FuntionDefinition](funcs.func3)
 			require.Error(t, err)
-			require.Nil(t, task)
+			require.Nil(t, callback)
 		})
 	})
 }

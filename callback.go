@@ -22,22 +22,34 @@
 
 package worker
 
-import "context"
+import (
+	"reflect"
+	"sync/atomic"
+)
 
-type Runner struct {
-	queue *TaskQueue
-	pool  *TaskPool
+type Callback[T any] struct {
+	Run       T
+	function  reflect.Value
+	fixedArgs []reflect.Value
 }
 
-func NewRunner() *Runner {
-	return &Runner{
-		queue: NewTaskQueue(),
+func (t *Callback[T]) helper(args []reflect.Value) []reflect.Value {
+	allArgs := t.fixedArgs
+	allArgs = append(allArgs, args...)
+	return t.function.Call(allArgs)
+}
+
+type OnceCallback[T any] struct {
+	*Callback[T]
+
+	called atomic.Bool
+}
+
+func (t *OnceCallback[T]) helper(args []reflect.Value) []reflect.Value {
+	if t.called.Load() {
+		panic("already called")
 	}
-}
 
-func (r *Runner) PostTask(task *Task) {
-	r.queue.Push(task)
-}
-
-func (r *Runner) RunLoop(c context.Context) {
+	t.called.Store(true)
+	return t.Callback.helper(args)
 }

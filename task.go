@@ -22,22 +22,33 @@
 
 package worker
 
-import (
-	"fmt"
-	"reflect"
-)
+import "time"
 
-type Task[T any] struct {
-	Run       T
-	function  reflect.Value
-	fixedArgs []reflect.Value
+type TaskSigniture func()
+
+type noCopy struct{}
+
+func (*noCopy) Lock()   {}
+func (*noCopy) Unlock() {}
+
+type Task struct {
+	_ noCopy
+
+	timestamp time.Time
+	callback  *Callback[TaskSigniture]
 }
 
-func (t *Task[T]) wrapper(args []reflect.Value) []reflect.Value {
-	allArgs := t.fixedArgs
-	allArgs = append(allArgs, args...)
-	for _, arg := range allArgs {
-		fmt.Printf("arg : %+v\n", arg)
+func NewTask(callback *Callback[TaskSigniture]) *Task {
+	return &Task{
+		timestamp: time.Now(),
+		callback:  callback,
 	}
-	return t.function.Call(allArgs)
+}
+
+func (t *Task) Run() {
+	t.callback.Run()
+}
+
+func (t *Task) isBefore(b *Task) bool {
+	return t.timestamp.Before(b.timestamp)
 }

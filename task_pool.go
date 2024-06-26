@@ -22,22 +22,9 @@
 
 package worker
 
-import "context"
-
-type Runner struct {
-	queue *TaskQueue
-	pool  *TaskPool
+type TaskPool struct {
 }
 
-func NewRunner() *Runner {
-	return &Runner{
-		queue: NewTaskQueue(),
-	}
-}
-
-func (r *Runner) PostTask(task *Task) {
-	r.queue.Push(task)
-}
-
-func (r *Runner) RunLoop(c context.Context) {
+func NewTaskPool() *TaskPool {
+	return &TaskPool{}
 }

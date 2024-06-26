@@ -25,40 +25,63 @@ package worker
 import (
 	"fmt"
 	"reflect"
+	"sync/atomic"
 )
 
-func Bind[FuncDefinition any](f interface{}, fixedArgs ...interface{}) (*Task[FuncDefinition], error) {
+type heplerFunction func(args []reflect.Value) []reflect.Value
+
+func Bind[FuncDefinition any](f interface{}, fixedArgs ...interface{}) (*Callback[FuncDefinition], error) {
+	callback := &Callback[FuncDefinition]{}
+	if err := bindInternal[FuncDefinition](callback, callback.helper, f, fixedArgs...); err != nil {
+		return nil, err
+	}
+
+	return callback, nil
+}
+
+func BindOnce[FuncDefinition any](f interface{}, fixedArgs ...interface{}) (*OnceCallback[FuncDefinition], error) {
+	onceCallback := &OnceCallback[FuncDefinition]{
+		Callback: &Callback[FuncDefinition]{},
+		called:   atomic.Bool{},
+	}
+
+	if err := bindInternal[FuncDefinition](onceCallback.Callback, onceCallback.helper, f, fixedArgs...); err != nil {
+		return nil, err
+	}
+
+	return onceCallback, nil
+}
+
+func bindInternal[FuncDefinition any](
+	callback *Callback[FuncDefinition], helper heplerFunction, f interface{}, fixedArgs ...interface{},
+) error {
 	var definition FuncDefinition
 	definitionValue := reflect.ValueOf(definition)
 	definitionType := definitionValue.Type()
+
+	if definitionType.Kind() != reflect.Func {
+		return fmt.Errorf("genetic type shoud be function")
+	}
 
 	funcValue := reflect.ValueOf(f)
 	funcType := funcValue.Type()
 
 	if funcType.Kind() != reflect.Func {
-		return nil, fmt.Errorf("first argument must be a function")
+		return fmt.Errorf("first argument must be a function")
 	}
 
 	predictedFixedArgsNum := funcType.NumIn() - definitionType.NumIn()
 	if predictedFixedArgsNum != len(fixedArgs) {
 		if len(fixedArgs) < predictedFixedArgsNum {
-			return nil, fmt.Errorf("too few arguments to bind")
+			return fmt.Errorf("too few arguments to bind")
 		} else {
-			return nil, fmt.Errorf("too many arguments to bind")
+			return fmt.Errorf("too many arguments to bind")
 		}
 	}
 
 	if err := compareReturnTypes(funcType, definitionType); err != nil {
-		return nil, err
+		return err
 	}
-
-	// fnOutsNum := funcType.NumOut()
-	// fnOuts := make([]reflect.Type, fnOutsNum)
-	// for i := 0; i < fnOutsNum; i++ {
-	// 	out := funcType.Out(i)
-	// 	fnOuts[i] = out
-	// 	fmt.Printf("outs : %s\n", fnOuts)
-	// }
 
 	fixedArgsValues := make([]reflect.Value, len(fixedArgs))
 	fixedArgsTypes := make([]reflect.Type, len(fixedArgs))
@@ -72,16 +95,13 @@ func Bind[FuncDefinition any](f interface{}, fixedArgs ...interface{}) (*Task[Fu
 	}
 
 	if err := compareArgumentsType(fixedArgsTypes, funcArgsValues, len(fixedArgsTypes)); err != nil {
-		return nil, err
+		return err
 	}
 
-	t := &Task[FuncDefinition]{
-		function:  funcValue,
-		fixedArgs: fixedArgsValues,
-	}
-
-	t.Run = reflect.MakeFunc(definitionValue.Type(), t.wrapper).Interface().(FuncDefinition)
-	return t, nil
+	callback.function = funcValue
+	callback.fixedArgs = fixedArgsValues
+	callback.Run = reflect.MakeFunc(definitionValue.Type(), helper).Interface().(FuncDefinition)
+	return nil
 }
 
 func isTypeEqual(a reflect.Type, b reflect.Type) bool {
