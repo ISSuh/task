@@ -28,7 +28,6 @@ import (
 
 type node struct {
 	task *Task
-	prev atomic.Pointer[node]
 	next atomic.Pointer[node]
 }
 
@@ -38,69 +37,76 @@ func newNode(task *Task) *node {
 	}
 }
 
-type TaskQueue struct {
+type taskQueue struct {
 	head atomic.Pointer[node]
 	tail atomic.Pointer[node]
 	size atomic.Int32
 }
 
-func NewTaskQueue() *TaskQueue {
-	q := &TaskQueue{
-		head: atomic.Pointer[node]{},
-		tail: atomic.Pointer[node]{},
-	}
+func newTaskQueue() taskQueue {
+	q := taskQueue{}
 
-	node := &node{}
-	q.head.Store(node)
-	q.tail.Store(node)
+	q.Clear()
 	return q
 }
 
-func (q *TaskQueue) Push(task *Task) {
+func (q *taskQueue) Push(task *Task) {
 	node := newNode(task)
-	if q.Empty() {
-		head := q.head.Load()
+	for {
 		tail := q.tail.Load()
-
-		head.next.Store(node)
-		tail.prev.Store(node)
-
-		node.prev.Store(head)
-		node.next.Store(tail)
-	} else {
-		tail := q.tail.Load()
-		lastNode := tail.prev.Load()
-
-		lastNode.next.CompareAndSwap(tail, node)
-		tail.prev.CompareAndSwap(lastNode, node)
-
-		node.prev.CompareAndSwap(nil, lastNode)
-		node.next.CompareAndSwap(nil, tail)
+		next := tail.next.Load()
+		if next == nil {
+			if tail.next.CompareAndSwap(next, node) {
+				q.tail.CompareAndSwap(tail, node)
+				q.size.Add(1)
+				return
+			}
+		} else {
+			q.tail.CompareAndSwap(tail, next)
+		}
 	}
-
-	q.size.Add(1)
 }
 
-func (q *TaskQueue) Pop() *Task {
+func (q *taskQueue) Pop() *Task {
 	if q.Empty() {
 		return nil
 	}
 
-	head := q.tail.Load()
-	firstNode := head.next.Load()
-	nextNode := firstNode.next.Load()
+	for {
+		tail := q.tail.Load()
+		head := q.head.Load()
+		next := head.next.Load()
+		if head != tail {
+			if next == nil {
+				return nil
+			}
 
-	head.next.CompareAndSwap(firstNode, nextNode)
-	nextNode.prev.CompareAndSwap(firstNode, head)
+			task := next.task
+			if q.head.CompareAndSwap(head, next) {
+				q.size.Add(-1)
+				return task
+			}
+		} else {
+			if next == nil {
+				return nil
+			}
 
-	q.size.Add(-1)
-	return firstNode.task
+			q.tail.CompareAndSwap(tail, next)
+		}
+	}
 }
 
-func (q *TaskQueue) Empty() bool {
+func (q *taskQueue) Clear() {
+	node := &node{}
+	q.head.Store(node)
+	q.tail.Store(node)
+	q.size.Store(0)
+}
+
+func (q *taskQueue) Empty() bool {
 	return q.size.Load() == 0
 }
 
-func (q *TaskQueue) Size() int {
+func (q *taskQueue) Size() int {
 	return int(q.size.Load())
 }

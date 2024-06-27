@@ -22,22 +22,52 @@
 
 package worker
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"sync"
+)
 
-type Runner struct {
-	queue *TaskQueue
-	pool  *TaskPool
+type TaskRunner struct {
+	queue   taskQueue
+	workers []*taskWorker
+
+	workerNum    int
+	cancelWorker context.CancelFunc
+	notify       chan struct{}
+	wg           sync.WaitGroup
 }
 
-func NewRunner() *Runner {
-	return &Runner{
-		queue: NewTaskQueue(),
+func NewTaskRunner(workerNum int) *TaskRunner {
+	r := &TaskRunner{
+		queue:     newTaskQueue(),
+		workerNum: workerNum,
+		workers:   make([]*taskWorker, workerNum),
+		notify:    make(chan struct{}, workerNum),
+		wg:        sync.WaitGroup{},
 	}
+
+	c, cancel := context.WithCancel(context.Background())
+	r.cancelWorker = cancel
+
+	for i := 0; i < workerNum; i++ {
+		r.wg.Add(1)
+		r.workers[i] = newTaskWorker(i, &r.queue, r.notify)
+		go r.workers[i].work(c, &r.wg)
+	}
+	return r
 }
 
-func (r *Runner) PostTask(task *Task) {
+func (r *TaskRunner) PostTask(task *Task) {
 	r.queue.Push(task)
+	r.notify <- struct{}{}
 }
 
-func (r *Runner) RunLoop(c context.Context) {
+func (r *TaskRunner) RunLoop(c context.Context) {
+	<-c.Done()
+
+	fmt.Printf("run lopp finished\n")
+	r.cancelWorker()
+
+	r.wg.Wait()
 }

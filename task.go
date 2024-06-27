@@ -45,6 +45,13 @@ func NewTask(callback *Callback[TaskSigniture]) *Task {
 	}
 }
 
+func NewDelayTask(delay time.Duration, callback *Callback[TaskSigniture]) *Task {
+	return &Task{
+		timestamp: time.Now().Add(delay),
+		callback:  callback,
+	}
+}
+
 func (t *Task) Run() {
 	t.callback.Run()
 }

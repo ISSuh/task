@@ -22,9 +22,50 @@
 
 package worker
 
-type TaskPool struct {
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+)
+
+type taskWorker struct {
+	id     int
+	queue  *taskQueue
+	notify <-chan struct{}
 }
 
-func NewTaskPool() *TaskPool {
-	return &TaskPool{}
+func newTaskWorker(id int, q *taskQueue, notify <-chan struct{}) *taskWorker {
+	return &taskWorker{
+		id:     id,
+		queue:  q,
+		notify: notify,
+	}
+}
+
+func (w *taskWorker) work(c context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for {
+		select {
+		case <-c.Done():
+			fmt.Printf("[%d] context canceled\n", w.id)
+			return
+		case <-w.notify:
+			w.workInternal()
+		}
+	}
+}
+
+func (w *taskWorker) workInternal() {
+	task := w.queue.Pop()
+	if task == nil {
+		return
+	}
+
+	if time.Now().After(task.timestamp) {
+		task.callback.Run()
+	} else {
+		w.queue.Push(task)
+	}
 }

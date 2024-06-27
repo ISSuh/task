@@ -23,6 +23,7 @@
 package worker
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -70,7 +71,7 @@ func TestTaskQueue(t *testing.T) {
 	t.Run("push", func(t *testing.T) {
 		resetTaskQueueCalled()
 
-		q := NewTaskQueue()
+		q := newTaskQueue()
 
 		q.Push(NewTask(taskA))
 		q.Push(NewTask(taskB))
@@ -83,7 +84,7 @@ func TestTaskQueue(t *testing.T) {
 	t.Run("pop", func(t *testing.T) {
 		resetTaskQueueCalled()
 
-		q := NewTaskQueue()
+		q := newTaskQueue()
 
 		q.Push(NewTask(taskA))
 		q.Push(NewTask(taskB))
@@ -109,4 +110,76 @@ func TestTaskQueue(t *testing.T) {
 		}
 	})
 
+	t.Run("concurrent", func(t *testing.T) {
+		t.Run("push", func(t *testing.T) {
+			resetTaskQueueCalled()
+
+			size := 100
+			q := newTaskQueue()
+
+			wg := sync.WaitGroup{}
+			for i := 0; i < size; i++ {
+				wg.Add(1)
+				go func(wg *sync.WaitGroup) {
+					defer wg.Done()
+
+					q.Push(NewTask(taskA))
+				}(&wg)
+			}
+
+			wg.Wait()
+
+			require.Equal(t, size, q.Size())
+		})
+
+		t.Run("pop", func(t *testing.T) {
+			resetTaskQueueCalled()
+
+			size := 100
+			q := newTaskQueue()
+
+			for i := 0; i < size; i++ {
+				q.Push(NewTask(taskA))
+			}
+
+			wg := sync.WaitGroup{}
+			for i := 0; i < size; i++ {
+				wg.Add(1)
+				go func(wg *sync.WaitGroup) {
+					defer wg.Done()
+
+					task := q.Pop()
+					require.NotNil(t, task)
+				}(&wg)
+			}
+
+			wg.Wait()
+
+			require.True(t, q.Empty())
+		})
+	})
+
+	t.Run("clear", func(t *testing.T) {
+		resetTaskQueueCalled()
+
+		size := 100
+		q := newTaskQueue()
+
+		wg := sync.WaitGroup{}
+		for i := 0; i < size; i++ {
+			wg.Add(1)
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+
+				q.Push(NewTask(taskA))
+			}(&wg)
+		}
+
+		wg.Wait()
+
+		require.Equal(t, size, q.Size())
+
+		q.Clear()
+		require.True(t, q.Empty())
+	})
 }
