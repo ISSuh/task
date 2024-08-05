@@ -59,3 +59,7 @@ func (t *Task) Run() {
 func (t *Task) isBefore(b *Task) bool {
 	return t.timestamp.Before(b.timestamp)
 }
+
+func (t *Task) TimeStamp() time.Time {
+	return t.timestamp
+}

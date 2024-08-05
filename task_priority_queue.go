@@ -22,52 +22,54 @@
 
 package worker
 
-import (
-	"context"
-	"fmt"
-	"sync"
-)
+import "container/heap"
 
-type TaskRunner struct {
-	queue   *taskQueue
-	workers []*taskWorker
-
-	workerNum    int
-	cancelWorker context.CancelFunc
-	notify       chan struct{}
-	wg           sync.WaitGroup
+type item struct {
+	task  *Task
+	index int
 }
 
-func NewTaskRunner(workerNum int) *TaskRunner {
-	r := &TaskRunner{
-		queue:     newTaskQueue(),
-		workerNum: workerNum,
-		workers:   make([]*taskWorker, workerNum),
-		notify:    make(chan struct{}, workerNum),
-		wg:        sync.WaitGroup{},
-	}
+type taskPriorityQueue []*item
 
-	c, cancel := context.WithCancel(context.Background())
-	r.cancelWorker = cancel
-
-	for i := 0; i < workerNum; i++ {
-		r.wg.Add(1)
-		r.workers[i] = newTaskWorker(i, r.queue, r.notify)
-		go r.workers[i].work(c, &r.wg)
-	}
-	return r
+func newTaskPriorityQueue() taskPriorityQueue {
+	q := make(taskPriorityQueue, 0)
+	heap.Init(&q)
+	return q
 }
 
-func (r *TaskRunner) PostTask(task *Task) {
-	r.queue.Push(task)
-	r.notify <- struct{}{}
+func (q taskPriorityQueue) Len() int {
+	return len(q)
 }
 
-func (r *TaskRunner) RunLoop(c context.Context) {
-	<-c.Done()
+func (q taskPriorityQueue) Less(i, j int) bool {
+	return q[i].task.isBefore(q[j].task)
+}
 
-	fmt.Printf("run lopp finished\n")
-	r.cancelWorker()
+func (q taskPriorityQueue) Swap(i, j int) {
+	q[i], q[j] = q[j], q[i]
+}
 
-	r.wg.Wait()
+func (q *taskPriorityQueue) Push(x interface{}) {
+	item := x.(*item)
+	// item.index = len(*q)
+	*q = append(*q, item)
+}
+
+func (q *taskPriorityQueue) Pop() interface{} {
+	old := *q
+	n := len(old)
+	item := old[n-1]
+	// item.index = -1 // for safety
+	*q = old[0 : n-1]
+	return item
+}
+
+// 우선순위 큐에 아이템 추가
+func (q *taskPriorityQueue) PushItem(item *item) {
+	heap.Push(q, item)
+}
+
+// 우선순위 큐에서 아이템 추출 (우선순위가 가장 높은 아이템)
+func (q *taskPriorityQueue) PopItem() *item {
+	return heap.Pop(q).(*item)
 }

@@ -43,11 +43,11 @@ type taskQueue struct {
 	size atomic.Int32
 }
 
-func newTaskQueue() taskQueue {
+func newTaskQueue() *taskQueue {
 	q := taskQueue{}
 
 	q.Clear()
-	return q
+	return &q
 }
 
 func (q *taskQueue) Push(task *Task) {

@@ -120,14 +120,11 @@ func TestTaskRunner(t *testing.T) {
 		r.PostTask(NewDelayTask(50*time.Millisecond, taskB))
 		r.PostTask(NewTask(taskC))
 
-		go func() {
-			time.Sleep(1 * time.Second)
-			cancel()
-		}()
-
 		r.RunLoop(c)
 
 		expectSequence := "CBA"
 		require.Equal(t, expectSequence, runnerTestSquence)
+
+		cancel()
 	})
 }

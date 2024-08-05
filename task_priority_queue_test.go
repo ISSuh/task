@@ -23,51 +23,68 @@
 package worker
 
 import (
-	"context"
 	"fmt"
-	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
-type TaskRunner struct {
-	queue   *taskQueue
-	workers []*taskWorker
+var runnerTestSquenceTmp string
 
-	workerNum    int
-	cancelWorker context.CancelFunc
-	notify       chan struct{}
-	wg           sync.WaitGroup
+func runnerTestAA() {
+	fmt.Println("A")
+	runnerTestSquenceTmp += "A"
 }
 
-func NewTaskRunner(workerNum int) *TaskRunner {
-	r := &TaskRunner{
-		queue:     newTaskQueue(),
-		workerNum: workerNum,
-		workers:   make([]*taskWorker, workerNum),
-		notify:    make(chan struct{}, workerNum),
-		wg:        sync.WaitGroup{},
+func runnerTestBB() {
+	fmt.Println("B")
+	runnerTestSquenceTmp += "B"
+}
+
+func runnerTestCC() {
+	fmt.Println("C")
+	runnerTestSquenceTmp += "C"
+}
+
+func Test_taskPriorityQueue(t *testing.T) {
+	q := newTaskPriorityQueue()
+
+	taskA, err := Bind[TaskSigniture](runnerTestAA)
+	require.NoError(t, err)
+
+	taskB, err := Bind[TaskSigniture](runnerTestBB)
+	require.NoError(t, err)
+
+	taskC, err := Bind[TaskSigniture](runnerTestCC)
+	require.NoError(t, err)
+
+	itemA := item{
+		task:  NewDelayTask(5000*time.Millisecond, taskA),
+		index: 0,
 	}
 
-	c, cancel := context.WithCancel(context.Background())
-	r.cancelWorker = cancel
-
-	for i := 0; i < workerNum; i++ {
-		r.wg.Add(1)
-		r.workers[i] = newTaskWorker(i, r.queue, r.notify)
-		go r.workers[i].work(c, &r.wg)
+	itemB := item{
+		task:  NewDelayTask(2000*time.Millisecond, taskB),
+		index: 1,
 	}
-	return r
-}
 
-func (r *TaskRunner) PostTask(task *Task) {
-	r.queue.Push(task)
-	r.notify <- struct{}{}
-}
+	itemC := item{
+		task:  NewDelayTask(1000*time.Millisecond, taskC),
+		index: 2,
+	}
 
-func (r *TaskRunner) RunLoop(c context.Context) {
-	<-c.Done()
+	q.PushItem(&itemA)
+	q.PushItem(&itemB)
+	q.PushItem(&itemC)
 
-	fmt.Printf("run lopp finished\n")
-	r.cancelWorker()
+	AA := q.PopItem()
+	BB := q.PopItem()
+	CC := q.PopItem()
 
-	r.wg.Wait()
+	AA.task.Run()
+	BB.task.Run()
+	CC.task.Run()
+
+	require.Equal(t, "CBA", runnerTestSquenceTmp)
 }
