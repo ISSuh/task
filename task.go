@@ -35,17 +35,17 @@ type Task struct {
 	_ noCopy
 
 	timestamp time.Time
-	callback  *Callback[TaskSigniture]
+	callback  *callback[TaskSigniture]
 }
 
-func NewTask(callback *Callback[TaskSigniture]) *Task {
+func NewTask(callback *callback[TaskSigniture]) *Task {
 	return &Task{
 		timestamp: time.Now(),
 		callback:  callback,
 	}
 }
 
-func NewDelayTask(delay time.Duration, callback *Callback[TaskSigniture]) *Task {
+func NewDelayTask(delay time.Duration, callback *callback[TaskSigniture]) *Task {
 	return &Task{
 		timestamp: time.Now().Add(delay),
 		callback:  callback,

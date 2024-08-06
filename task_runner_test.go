@@ -24,6 +24,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -41,15 +42,18 @@ func resetRunnerTest() {
 }
 
 func runnerTestA() {
+	fmt.Println("A")
 	runnerTestACalledCount.Add(1)
 	runnerTestSquence += "A"
 }
 
 func runnerTestB() {
+	fmt.Println("B")
 	runnerTestSquence += "B"
 }
 
 func runnerTestC() {
+	fmt.Println("C")
 	runnerTestSquence += "C"
 }
 
@@ -119,6 +123,11 @@ func TestTaskRunner(t *testing.T) {
 		r.PostTask(NewDelayTask(100*time.Millisecond, taskA))
 		r.PostTask(NewDelayTask(50*time.Millisecond, taskB))
 		r.PostTask(NewTask(taskC))
+
+		go func() {
+			time.Sleep(1 * time.Second)
+			cancel()
+		}()
 
 		r.RunLoop(c)
 

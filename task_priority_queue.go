@@ -22,14 +22,14 @@
 
 package worker
 
-import "container/heap"
+import (
+	"container/heap"
+	"sync"
+)
 
-type item struct {
-	task  *Task
-	index int
-}
+type taskPriorityQueue []*Task
 
-type taskPriorityQueue []*item
+var mutex sync.Mutex
 
 func newTaskPriorityQueue() taskPriorityQueue {
 	q := make(taskPriorityQueue, 0)
@@ -42,7 +42,7 @@ func (q taskPriorityQueue) Len() int {
 }
 
 func (q taskPriorityQueue) Less(i, j int) bool {
-	return q[i].task.isBefore(q[j].task)
+	return q[i].isBefore(q[j])
 }
 
 func (q taskPriorityQueue) Swap(i, j int) {
@@ -50,8 +50,7 @@ func (q taskPriorityQueue) Swap(i, j int) {
 }
 
 func (q *taskPriorityQueue) Push(x interface{}) {
-	item := x.(*item)
-	// item.index = len(*q)
+	item := x.(*Task)
 	*q = append(*q, item)
 }
 
@@ -59,17 +58,20 @@ func (q *taskPriorityQueue) Pop() interface{} {
 	old := *q
 	n := len(old)
 	item := old[n-1]
-	// item.index = -1 // for safety
 	*q = old[0 : n-1]
 	return item
 }
 
-// 우선순위 큐에 아이템 추가
-func (q *taskPriorityQueue) PushItem(item *item) {
-	heap.Push(q, item)
+func (q *taskPriorityQueue) PushTask(task *Task) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	heap.Push(q, task)
 }
 
-// 우선순위 큐에서 아이템 추출 (우선순위가 가장 높은 아이템)
-func (q *taskPriorityQueue) PopItem() *item {
-	return heap.Pop(q).(*item)
+func (q *taskPriorityQueue) PopTask() *Task {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	return heap.Pop(q).(*Task)
 }

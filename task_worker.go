@@ -30,16 +30,14 @@ import (
 )
 
 type taskWorker struct {
-	id     int
-	queue  *taskQueue
-	notify <-chan struct{}
+	id        int
+	delegator taskQueueDelegator
 }
 
-func newTaskWorker(id int, q *taskQueue, notify <-chan struct{}) *taskWorker {
+func newTaskWorker(id int, delegator taskQueueDelegator) *taskWorker {
 	return &taskWorker{
-		id:     id,
-		queue:  q,
-		notify: notify,
+		id:        id,
+		delegator: delegator,
 	}
 }
 
@@ -51,14 +49,14 @@ func (w *taskWorker) work(c context.Context, wg *sync.WaitGroup) {
 		case <-c.Done():
 			fmt.Printf("[%d] context canceled\n", w.id)
 			return
-		case <-w.notify:
+		case <-w.delegator.wait():
 			w.workInternal()
 		}
 	}
 }
 
 func (w *taskWorker) workInternal() {
-	task := w.queue.Pop()
+	task := w.delegator.popTask()
 	if task == nil {
 		return
 	}
@@ -66,6 +64,6 @@ func (w *taskWorker) workInternal() {
 	if time.Now().After(task.timestamp) {
 		task.callback.Run()
 	} else {
-		w.queue.Push(task)
+		w.delegator.pushTask(task)
 	}
 }

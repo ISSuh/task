@@ -26,7 +26,14 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 )
+
+type taskQueueDelegator interface {
+	pushTask(task *Task)
+	popTask() *Task
+	wait() <-chan struct{}
+}
 
 type TaskRunner struct {
 	queue   *taskQueue
@@ -52,13 +59,30 @@ func NewTaskRunner(workerNum int) *TaskRunner {
 
 	for i := 0; i < workerNum; i++ {
 		r.wg.Add(1)
-		r.workers[i] = newTaskWorker(i, r.queue, r.notify)
+		r.workers[i] = newTaskWorker(i, r)
 		go r.workers[i].work(c, &r.wg)
 	}
 	return r
 }
 
 func (r *TaskRunner) PostTask(task *Task) {
+	now := time.Now()
+	if task.TimeStamp().Before(now) {
+		r.postTaskInternal(task)
+		return
+	}
+	r.postDelayTask(task, now)
+}
+
+func (r *TaskRunner) postDelayTask(task *Task, now time.Time) {
+	go func() {
+		duration := task.TimeStamp().Sub(now)
+		<-time.After(duration)
+		r.postTaskInternal(task)
+	}()
+}
+
+func (r *TaskRunner) postTaskInternal(task *Task) {
 	r.queue.Push(task)
 	r.notify <- struct{}{}
 }
@@ -70,4 +94,16 @@ func (r *TaskRunner) RunLoop(c context.Context) {
 	r.cancelWorker()
 
 	r.wg.Wait()
+}
+
+func (r *TaskRunner) pushTask(task *Task) {
+	r.PostTask(task)
+}
+
+func (r *TaskRunner) popTask() *Task {
+	return r.queue.Pop()
+}
+
+func (r *TaskRunner) wait() <-chan struct{} {
+	return r.notify
 }

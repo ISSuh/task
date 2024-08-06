@@ -59,32 +59,21 @@ func Test_taskPriorityQueue(t *testing.T) {
 	taskC, err := Bind[TaskSigniture](runnerTestCC)
 	require.NoError(t, err)
 
-	itemA := item{
-		task:  NewDelayTask(5000*time.Millisecond, taskA),
-		index: 0,
-	}
+	itemA := NewDelayTask(1000*time.Millisecond, taskA)
+	itemB := NewDelayTask(500*time.Millisecond, taskB)
+	itemC := NewDelayTask(100*time.Millisecond, taskC)
 
-	itemB := item{
-		task:  NewDelayTask(2000*time.Millisecond, taskB),
-		index: 1,
-	}
+	q.PushTask(itemA)
+	q.PushTask(itemB)
+	q.PushTask(itemC)
 
-	itemC := item{
-		task:  NewDelayTask(1000*time.Millisecond, taskC),
-		index: 2,
-	}
+	AA := q.PopTask()
+	BB := q.PopTask()
+	CC := q.PopTask()
 
-	q.PushItem(&itemA)
-	q.PushItem(&itemB)
-	q.PushItem(&itemC)
-
-	AA := q.PopItem()
-	BB := q.PopItem()
-	CC := q.PopItem()
-
-	AA.task.Run()
-	BB.task.Run()
-	CC.task.Run()
+	AA.Run()
+	BB.Run()
+	CC.Run()
 
 	require.Equal(t, "CBA", runnerTestSquenceTmp)
 }

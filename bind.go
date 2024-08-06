@@ -30,8 +30,8 @@ import (
 
 type heplerFunction func(args []reflect.Value) []reflect.Value
 
-func Bind[FuncDefinition any](f interface{}, fixedArgs ...interface{}) (*Callback[FuncDefinition], error) {
-	callback := &Callback[FuncDefinition]{}
+func Bind[FuncDefinition any](f interface{}, fixedArgs ...interface{}) (*callback[FuncDefinition], error) {
+	callback := &callback[FuncDefinition]{}
 	if err := bindInternal[FuncDefinition](callback, callback.helper, f, fixedArgs...); err != nil {
 		return nil, err
 	}
@@ -39,13 +39,13 @@ func Bind[FuncDefinition any](f interface{}, fixedArgs ...interface{}) (*Callbac
 	return callback, nil
 }
 
-func BindOnce[FuncDefinition any](f interface{}, fixedArgs ...interface{}) (*OnceCallback[FuncDefinition], error) {
-	onceCallback := &OnceCallback[FuncDefinition]{
-		Callback: &Callback[FuncDefinition]{},
+func BindOnce[FuncDefinition any](f interface{}, fixedArgs ...interface{}) (*onceCallback[FuncDefinition], error) {
+	onceCallback := &onceCallback[FuncDefinition]{
+		callback: &callback[FuncDefinition]{},
 		called:   atomic.Bool{},
 	}
 
-	if err := bindInternal[FuncDefinition](onceCallback.Callback, onceCallback.helper, f, fixedArgs...); err != nil {
+	if err := bindInternal[FuncDefinition](onceCallback.callback, onceCallback.helper, f, fixedArgs...); err != nil {
 		return nil, err
 	}
 
@@ -53,7 +53,7 @@ func BindOnce[FuncDefinition any](f interface{}, fixedArgs ...interface{}) (*Onc
 }
 
 func bindInternal[FuncDefinition any](
-	callback *Callback[FuncDefinition], helper heplerFunction, f interface{}, fixedArgs ...interface{},
+	callback *callback[FuncDefinition], helper heplerFunction, f interface{}, fixedArgs ...interface{},
 ) error {
 	var definition FuncDefinition
 	definitionValue := reflect.ValueOf(definition)

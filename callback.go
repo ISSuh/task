@@ -27,29 +27,29 @@ import (
 	"sync/atomic"
 )
 
-type Callback[T any] struct {
+type callback[T any] struct {
 	Run       T
 	function  reflect.Value
 	fixedArgs []reflect.Value
 }
 
-func (t *Callback[T]) helper(args []reflect.Value) []reflect.Value {
+func (t *callback[T]) helper(args []reflect.Value) []reflect.Value {
 	allArgs := t.fixedArgs
 	allArgs = append(allArgs, args...)
 	return t.function.Call(allArgs)
 }
 
-type OnceCallback[T any] struct {
-	*Callback[T]
+type onceCallback[T any] struct {
+	*callback[T]
 
 	called atomic.Bool
 }
 
-func (t *OnceCallback[T]) helper(args []reflect.Value) []reflect.Value {
+func (t *onceCallback[T]) helper(args []reflect.Value) []reflect.Value {
 	if t.called.Load() {
 		panic("already called")
 	}
 
 	t.called.Store(true)
-	return t.Callback.helper(args)
+	return t.callback.helper(args)
 }
