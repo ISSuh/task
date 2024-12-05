@@ -13,8 +13,11 @@ func taskFunc(index int) {
 }
 
 func main() {
+	// Create task runner with number of worker
 	runner := worker.NewTaskRunner(5)
 
+	// run task runner
+	// task runner will be stopped when cancel context
 	c, cancel := context.WithCancel(context.Background())
 	go runner.RunLoop(c)
 
