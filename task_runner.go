@@ -87,6 +87,7 @@ func (r *TaskRunner) postTaskInternal(task *Task) {
 	r.notify <- struct{}{}
 }
 
+// RunLoop run task runner loop
 func (r *TaskRunner) RunLoop(c context.Context) {
 	<-c.Done()
 
